@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 240, 249, 255;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(0, 0, 0);
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  min-height: 100vh;
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-poppins);
+    @apply text-black;
+  }
+  
+  h1 {
+    @apply text-4xl font-extrabold md:text-5xl tracking-tight text-blue-900;
+  }
+  
+  h2 {
+    @apply text-2xl font-bold md:text-3xl text-blue-800;
+  }
+  
+  h3 {
+    @apply text-xl font-semibold text-blue-800;
+  }
+
+  p {
+    @apply text-base text-gray-900;
+  }
+  
+  a {
+    @apply text-blue-700 hover:text-blue-800;
+  }
+  
+  li {
+    @apply text-gray-900;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6;
+  }
+  
+  .section-title {
+    @apply text-3xl font-bold text-blue-800 mb-4 border-b-2 border-blue-200 pb-2;
+  }
+  
+  .page-title {
+    @apply text-5xl font-extrabold text-gray-900 mb-4 tracking-tight;
+  }
+  
+  .page-subtitle {
+    @apply text-2xl text-gray-900;
+  }
+}
