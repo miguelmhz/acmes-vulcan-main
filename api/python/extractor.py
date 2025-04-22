@@ -22,6 +22,7 @@ import pytesseract
 from PIL import Image
 import uuid
 import pdfplumber
+from dictionary import DEFAULT_CONTRACT_FIELDS, DEFAULT_FIANZA_FIELDS, DEFAULT_SEGURO_FIELDS
 
 # Try to import PDF processing libraries
 try:
@@ -46,29 +47,7 @@ class DocumentType(str, Enum):
     COMPLEMENTARIO = "complementario"
     OTHER = "other"
 
-# Default field descriptions
-DEFAULT_CONTRACT_FIELDS = {
-    "contract_id": "Número o identificador único del contrato",
-    "contract_type": "Tipo de contrato (arrendamiento, servicios, etc.)",
-    "beneficiary_name": "Nombre del beneficiario del contrato",
-    "contractor_name": "Nombre del contratista o proveedor",
-    "contract_date": "Fecha de firma del contrato",
-    "effective_date": "Fecha de inicio de vigencia",
-    "expiration_date": "Fecha de término de vigencia",
-    "contract_amount": "Monto total del contrato",
-    "payment_terms": "Términos de pago establecidos",
-    "rfc": "RFC del contratista o proveedor",
-    "fecha": "Fecha del contrato",
-    "vigencia": "Periodo de vigencia del contrato",
-    "arrendador": "Nombre de la persona o entidad que arrienda",
-    "arrendatario": "Nombre de la persona o entidad que recibe el arrendamiento",
-    "direccion": "Dirección donde se ubica el inmueble o servicios",
-    "monto": "Cantidad monetaria del contrato",
-    "razon_social_contratante": "Razón social completa del contratante",
-    "razon_social_arrendador": "Razón social completa del arrendador",
-    "razon_social_arrendatario": "Razón social completa del arrendatario",
-    "clausulados": "Listado de cláusulas importantes del contrato"
-}
+
 
 # Field Maps for different document types
 DEFAULT_DOCUMENT_FIELDS = {
@@ -576,19 +555,7 @@ class DocumentExtractor:
             if document_type == "fianza":
                 print(f"Using Mistral API to extract fields from {document_type}")
                 instructions = "Analiza este documento de fianza y extrae la siguiente información en formato JSON:"
-                fields_to_extract = {
-                    "fianza_id": "Número de la fianza",
-                    "emisor": "Nombre de la afianzadora o empresa emisora",
-                    "fecha_emision": "Fecha de emisión de la fianza",
-                    "fecha_vigencia": "Fecha de vigencia o vencimiento",
-                    "beneficiario": "Nombre del beneficiario",
-                    "afianzado": "Nombre del afianzado o cliente",
-                    "monto": "Monto o importe de la fianza",
-                    "moneda": "Tipo de moneda (MXN, USD, etc.)",
-                    "concepto": "Concepto u objeto de la fianza",
-                    "contrato_relacionado": "Número del contrato relacionado si se menciona",
-                    "tipo_fianza": "Tipo de fianza (cumplimiento, anticipo, etc.)"
-                }
+                fields_to_extract = DEFAULT_FIANZA_FIELDS
             elif document_type == "seguro":
                 print(f"Using Mistral API to extract fields from {document_type}")
                 instructions = "Analiza esta póliza de seguro y extrae la siguiente información en formato JSON:"
@@ -1104,22 +1071,10 @@ class DocumentExtractor:
             
             # Prepare system prompt based on document type
             if document_type.lower() == 'contract':
-                system_prompt = """
+                system_prompt = f"""
                 Eres un experto en extracción de información de contratos mercantiles en español. Tu tarea es analizar el texto del contrato proporcionado y extraer con precisión la siguiente información:
 
-                - document_id: El identificador o número del contrato. Busca patrones como "CONTRATO No.", "NÚMERO DE CONTRATO", "AIFA-DCS-SSAC-XXXX-XXXX", etc.
-                
-                - document_title: El título completo del contrato. Normalmente está al inicio del documento y describe su naturaleza.
-                
-                - document_date: La fecha de celebración del contrato en formato día, mes, año.
-                
-                - parties_involved: Lista de las partes involucradas en el contrato. Incluye los nombres completos de las entidades o personas, tanto físicas como morales. Típicamente indicadas después de términos como "celebran", "comparecen", "las partes", etc.
-                
-                - rfc: Lista de Registros Federales de Contribuyentes (RFC) de las partes mencionadas en el contrato. Busca patrones alfanuméricos como "XXX000000XXX".
-                
-                - validity_period: Lista de información sobre la vigencia del contrato, incluyendo fechas de inicio y terminación, o la duración especificada.
-                
-                - amounts: Lista de montos monetarios relevantes mencionados en el contrato, como el valor total del contrato, pagos parciales, etc.
+                {DEFAULT_CONTRACT_FIELDS}
 
                 IMPORTANTE:
                 1. Responde ÚNICAMENTE en formato JSON sin ningún texto adicional.
@@ -1176,7 +1131,8 @@ class DocumentExtractor:
                 """
             
             # Prepare user message with text (limit to first 14K chars to leave room for response)
-            MAX_TEXT_LENGTH = 14000
+            ## TODO: Adjust MAX_TEXT_LENGTH based on API limits | los contratos ocupan 30K chars
+            MAX_TEXT_LENGTH = 40000
             user_message = text[:MAX_TEXT_LENGTH]
             
             # Set up payload for API request
@@ -1217,6 +1173,7 @@ class DocumentExtractor:
                     try:
                         # Try to parse the response as JSON
                         extracted_fields = json.loads(content)
+                        print(f"-----------Extracted data: {extracted_fields} ---------------")
                         print(f"Extracted fields: {list(extracted_fields.keys())}")
                         
                         # Ensure proper structure and normalize data
@@ -1241,6 +1198,21 @@ class DocumentExtractor:
                             elif isinstance(extracted_fields["parties_involved"], str):
                                 normalized_fields["parties_involved"] = [extracted_fields["parties_involved"]]
                         
+                        # contractor_name (string)
+                        if "contractor_name" in extracted_fields and extracted_fields["contractor_name"]:
+                            normalized_fields["contractor_name"] = extracted_fields["contractor_name"]
+
+                        # direccion (string)
+                        if "direccion" in extracted_fields and extracted_fields["direccion"]:
+                            normalized_fields["direccion"] = extracted_fields["direccion"]
+
+                        # clausulados (list)
+                        if "clausulados" in extracted_fields and extracted_fields["clausulados"]:
+                            if isinstance(extracted_fields["clausulados"], list):
+                                normalized_fields["clausulados"] = [c for c in extracted_fields["clausulados"] if c and len(str(c).strip()) > 0]
+                            elif isinstance(extracted_fields["clausulados"], str):
+                                normalized_fields["clausulados"] = [extracted_fields["clausulados"]]
+
                         # rfc (list)
                         if "rfc" in extracted_fields and extracted_fields["rfc"]:
                             if isinstance(extracted_fields["rfc"], list):
@@ -1807,19 +1779,12 @@ class DocumentExtractor:
             
             # Define field descriptions based on document type
             if document_type == DocumentType.CONTRACT:
-                field_descriptions = DEFAULT_CONTRACT_FIELDS
-                system_prompt = """
+                system_prompt = f"""
                 Eres un experto en extracción de información de contratos. 
                 Tu tarea es analizar el texto completo del documento y extraer con precisión la información relevante.
                 
                 Busca e identifica los siguientes campos:
-                - document_id: Identificador o número del contrato (busca patrones como "AIFA-DCS-SSAC-XXXX-XXXX")
-                - document_title: Título o nombre del contrato
-                - document_date: Fecha del contrato
-                - parties_involved: Lista de las partes involucradas (contratante y contratista)
-                - rfc: RFC de las partes, especialmente del contratista
-                - validity_period: Periodo de vigencia del contrato
-                - amounts: Montos monetarios involucrados
+                {DEFAULT_CONTRACT_FIELDS}
                 
                 Responde ÚNICAMENTE con un objeto JSON que contenga estos campos.
                 Si no encuentras información para algún campo, déjalo como array o string vacío según corresponda.

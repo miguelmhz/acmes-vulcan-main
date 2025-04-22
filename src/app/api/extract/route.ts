@@ -195,9 +195,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         try {
           // Extract JSON from stdout
-          const jsonPattern = /---JSON_START---\n([\s\S]*?)---JSON_END---/;
+          const jsonPattern = /---JSON_START---[\r\n]*([\s\S]*?)---JSON_END---/;          
           const jsonMatch = stdoutData.match(jsonPattern);
-          console.log(`JSON match: ${jsonMatch}`);
+          //console.log(`JSON match: ${jsonMatch}`);
           const jsonString = jsonMatch ? jsonMatch[1] : null;
           console.log(`JSON string: ${jsonString}`);
 

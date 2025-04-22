@@ -71,6 +71,7 @@ export default function Home() {
             // Identificar el contrato
             const contract = documents.find((doc: any) => doc.document_type === 'contract');
             if (contract) {
+              console.log("Contract found:", contract);
               setContractData(contract);
               setStep1Complete(true);
             }
@@ -284,16 +285,16 @@ export default function Home() {
                         </div>
                         <div className="ml-3">
                           <p className="text-sm text-blue-700">
-                            <strong>Contrato relacionado:</strong> {contractData.fields.contract_id || contractData.document_id}
+                            <strong>Contrato relacionado:</strong> {contractData?.fields?.contract_id || contractData?.document_id}
                           </p>
-                          {contractData.fields.contractor_name && (
+                          {contractData?.fields?.contractor_name && (
                             <p className="text-xs text-blue-600 mt-1">
-                              Contratista: {contractData.fields.contractor_name}
+                              Contratista: {contractData?.fields?.contractor_name}
                             </p>
                           )}
-                          {contractData.fields.contract_amount && (
+                          {contractData?.fields?.contract_amount && (
                             <p className="text-xs text-blue-600 mt-1">
-                              Monto: {contractData.fields.contract_amount}
+                              Monto: {contractData?.fields?.contract_amount.toString()}
                             </p>
                           )}
                         </div>
