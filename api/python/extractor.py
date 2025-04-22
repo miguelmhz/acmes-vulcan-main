@@ -969,7 +969,20 @@ class DocumentExtractor:
             # If pdfplumber fails or extracts no text, try OCR fallback if available
             try:                
                 print("Using OCR to extract text from PDF", file=sys.stderr)
-                images = convert_from_path(file_path, dpi=300, first_page=1, last_page=10)
+                # Get total number of pages using pdfplumber
+                with pdfplumber.open(file_path) as pdf:
+                    total_pages = len(pdf.pages)
+                print(f"PDF has {total_pages} pages", file=sys.stderr)
+                
+                # Set a reasonable limit for OCR processing
+                MAX_OCR_PAGES = 30
+                pages_to_process = min(total_pages, MAX_OCR_PAGES)
+                
+                if total_pages > MAX_OCR_PAGES:
+                    print(f"Warning: PDF has {total_pages} pages. Only processing first {MAX_OCR_PAGES} pages to avoid memory issues.", file=sys.stderr)
+                
+                # Convert pages to images
+                images = convert_from_path(file_path, dpi=300, first_page=1, last_page=pages_to_process)
                 
                 for i, image in enumerate(images):
                     page_text = pytesseract.image_to_string(image, lang='spa')
@@ -1078,7 +1091,7 @@ class DocumentExtractor:
 
                 IMPORTANTE:
                 1. Responde ÚNICAMENTE en formato JSON sin ningún texto adicional.
-                2. Si alguna información no se encuentra en el texto, deja el campo como string vacío o arreglo vacío según corresponda.
+                2. Si alguna información no se encuentra en el texto, deja el campo como string vacío o arreglo vacío según corresponda, EXCEPTO para los campos 'direccion', 'rfc', 'contractor_name' y 'clausulados' que debe devolver 'N/A' si no se encuentra.
                 3. Para los campos de listas (parties_involved, rfc, validity_period, amounts), utiliza arrays incluso si solo hay un elemento.
                 4. Pon especial atención a los encabezados de "DECLARACIONES" y "CLÁUSULAS" pues suelen contener información clave.
                 """
@@ -1132,7 +1145,7 @@ class DocumentExtractor:
             
             # Prepare user message with text (limit to first 14K chars to leave room for response)
             ## TODO: Adjust MAX_TEXT_LENGTH based on API limits | los contratos ocupan 30K chars
-            MAX_TEXT_LENGTH = 40000
+            MAX_TEXT_LENGTH = 85000
             user_message = text[:MAX_TEXT_LENGTH]
             
             # Set up payload for API request
@@ -1199,26 +1212,34 @@ class DocumentExtractor:
                                 normalized_fields["parties_involved"] = [extracted_fields["parties_involved"]]
                         
                         # contractor_name (string)
-                        if "contractor_name" in extracted_fields and extracted_fields["contractor_name"]:
-                            normalized_fields["contractor_name"] = extracted_fields["contractor_name"]
+                        if "contractor_name" in extracted_fields:
+                            normalized_fields["contractor_name"] = extracted_fields["contractor_name"] if extracted_fields["contractor_name"] else "N/A"
+                        else:
+                            normalized_fields["contractor_name"] = "N/A"
 
                         # direccion (string)
-                        if "direccion" in extracted_fields and extracted_fields["direccion"]:
-                            normalized_fields["direccion"] = extracted_fields["direccion"]
+                        if "direccion" in extracted_fields:
+                            normalized_fields["direccion"] = extracted_fields["direccion"] if extracted_fields["direccion"] else "N/A"
+                        else:
+                            normalized_fields["direccion"] = "N/A"
 
                         # clausulados (list)
-                        if "clausulados" in extracted_fields and extracted_fields["clausulados"]:
+                        if "clausulados" in extracted_fields:
                             if isinstance(extracted_fields["clausulados"], list):
-                                normalized_fields["clausulados"] = [c for c in extracted_fields["clausulados"] if c and len(str(c).strip()) > 0]
+                                normalized_fields["clausulados"] = [c for c in extracted_fields["clausulados"] if c and len(str(c).strip()) > 0] or ["N/A"]
                             elif isinstance(extracted_fields["clausulados"], str):
-                                normalized_fields["clausulados"] = [extracted_fields["clausulados"]]
+                                normalized_fields["clausulados"] = [extracted_fields["clausulados"]] if extracted_fields["clausulados"].strip() else ["N/A"]
+                        else:
+                            normalized_fields["clausulados"] = ["N/A"]
 
                         # rfc (list)
-                        if "rfc" in extracted_fields and extracted_fields["rfc"]:
+                        if "rfc" in extracted_fields:
                             if isinstance(extracted_fields["rfc"], list):
-                                normalized_fields["rfc"] = [r for r in extracted_fields["rfc"] if r and len(str(r).strip()) > 0]
+                                normalized_fields["rfc"] = [r for r in extracted_fields["rfc"] if r and len(str(r).strip()) > 0] or ["N/A"]
                             elif isinstance(extracted_fields["rfc"], str):
-                                normalized_fields["rfc"] = [extracted_fields["rfc"]]
+                                normalized_fields["rfc"] = [extracted_fields["rfc"]] if extracted_fields["rfc"].strip() else ["N/A"]
+                        else:
+                            normalized_fields["rfc"] = ["N/A"]
                         
                         # validity_period (list)
                         if "validity_period" in extracted_fields and extracted_fields["validity_period"]:
