@@ -9,17 +9,17 @@ DEFAULT_CONTRACT_FIELDS = {
     "expiration_date": "Buscar en la misma cláusula de vigencia, donde dice hasta qué día aplica el contrato.",
     "contract_amount": "Extraer los montos máximos y mínimos (sin IVA y con IVA) si es contrato abierto. Buscar en cláusula 'SEGUNDA' o 'MONTO'.",
     "payment_terms": "Buscar cláusula cuarta, llamada 'FORMA Y LUGAR DE PAGO'. Buscar mención de pagos a mes vencido, plazos (20 días), y condiciones.",
-    "rfc": "Localiza el Registro Federal de Contribuyentes (RFC), que es una clave alfanumérica de 12 o 13 caracteres. El RFC usualmente sigue un formato específico (ej. AAA990101XXX o AAAA990101XXX) y puede estar ubicado en las declaraciones iniciales del documento o en la sección de 'DECLARACIONES' relativas a EL ARRENDATARIO.",
+    "rfc": "Localiza el Registro Federal de Contribuyentes (RFC), que es una clave alfanumérica de 12 o 13 caracteres. El RFC usualmente sigue un formato específico (ej. AAA990101XXX o AAAA990101XXX o AVM590620FC3) y puede estar ubicado en las declaraciones iniciales del documento o en la sección de 'DECLARACIONES' relativas a EL ARRENDATARIO.",
     "fecha": "Usar la misma que 'contract_date' si no hay distinción clara.",
     "vigencia": "Extraer rango de fechas desde cláusula de vigencia. Formato: '01/01/2025 - 31/12/2025'",
     "arrendador": "Solo si el contrato es de arrendamiento. Buscar quién es 'EL ARRENDADOR' o 'la entidad que da en arrendamiento'.",
     "arrendatario": "Extraer si aplica al tipo de contrato. Aparece como 'EL ARRENDATARIO'.",
-    "direccion": "Extrae las direcciones completas de todas las entidades mencionadas en el contrato. Busca frases como 'tiene su domicilio en', 'tiene establecido su domicilio en', o busca en las secciones de 'DECLARACIONES' o en el encabezado del contrato. Incluye todos los componentes de la dirección (calle, número, colonia, código postal, ciudad, estado) si están disponibles. Extrae todas las direcciones presentes.",
+    "direccion": "Extrae las direcciones completas de todas las entidades mencionadas en el contrato. Busca frases como 'tiene su domicilio en', 'tiene establecido su domicilio en', o busca en las secciones de 'DECLARACIONES', en el encabezado del contrato o revisa si hay una seccion 'DIRECCION'. Incluye todos los componentes de la dirección (calle, número, colonia, código postal, ciudad, estado) si están disponibles. Extrae todas las direcciones presentes. Ej. 'AVE DE LOS 100 METROS 733, Col. Nueva Industrial Vallejo, Gustavo A. Madero, Ciudad de Mexico, CP. 07700'.",
     "monto": "Tomar de la cláusula de monto, extraer tanto mínimo como máximo si está en formato de contrato abierto.",
     "razon_social_contratante": "Siempre es 'Aeropuerto Internacional Felipe Ángeles, S.A. de C.V.'.",
     "razon_social_arrendador": "Aplicable solo si el AIFA arrienda un espacio, puede ser la razón social del AIFA o de la entidad que otorga el bien.",
     "razon_social_arrendatario": "Aplicar si el contrato es de arrendamiento. Buscar en la sección de declaraciones o cláusulas iniciales.",
-    "clausulados": "Detectar secciones que comiencen con 'PRIMERA', 'SEGUNDA', etc. hasta el final del documento. Enumerarlas con su título. SIEMPRE incluye el nombre de la clausula (ejemplo: 'DÉCIMA SÉPTIMA.- TRANSPORTE.')",
+    "clausulados": "Detectar secciones que comiencen con 'PRIMERA', 'SEGUNDA', etc. hasta el final del documento. Enumerarlas con su título. SIEMPRE incluye el nombre de la clausula (ejemplo: 'DÉCIMA SÉPTIMA.- TRANSPORTE.'), agrupar en un array de la forma [{title: 'DÉCIMA SÉPTIMA.- TRANSPORTE.', 'content': 'TODO el contenido sin resumir hasta el inicio de la siguiente cláusula'}].",
     
     "cuota_servicios": "Buscar el porcentaje adicional por concepto de mantenimiento, aparece tras el monto o en cláusulas específicas.",
     "fianza_monto": "Buscar en cláusula de garantías o anexos, usualmente el 10% del monto máximo sin IVA. Aparece como cifra en pesos.",
@@ -44,7 +44,9 @@ DEFAULT_FIANZA_FIELDS = {
     "validity_date": "Fechas de inicio y fin de vigencia de la fianza. Busca expresiones como 'INICIO DE VIGENCIA' o 'del [fecha] al [fecha]'.",
     "fianza_amount": "Monto total garantizado por la fianza. Aparece en texto numérico y en letras, por ejemplo '$457,325.13 (CUATROCIENTOS...)'.",
     "currency": "Moneda en la que está expresada la fianza. Generalmente aparece como 'MONEDA: PESOS' o similar.",
-    "policy_statements": "Declaraciones y condiciones generales contenidas en la póliza. Aparecen en forma de incisos o listados que indican las reglas del contrato, la cancelación, la vigencia extendida, etc."
+    "policy_statements": "Declaraciones y condiciones generales contenidas en la póliza. Aparecen en forma de incisos o listados que indican las reglas del contrato, la cancelación, la vigencia extendida, etc.",
+    "rfc": "Localiza el Registro Federal de Contribuyentes (RFC), que es una clave alfanumérica de 12 o 13 caracteres. El RFC usualmente sigue un formato específico (ej. AAA990101XXX o AAAA990101XXX), puede estar ubicado despues de 'R.F.C.'.",
+    "fiado_address": "Extrae la dirección o domicilio del FIADO, generalmente aparece seguido de una frase como 'Con domicilio en' o junto a los datos del fiado, Incluye calle, número, colonia, alcaldía, ciudad, estado y código postal, si están.",
 }
 
 
@@ -60,5 +62,7 @@ DEFAULT_SEGURO_FIELDS = {
     "prima": "Monto de la prima",
     "tipo_seguro": "Tipo de seguro (daños, vida, etc.)",
     "cobertura": "Descripción de la cobertura",
-    "exclusiones": "Principales exclusiones si se mencionan"
+    "exclusiones": "Principales exclusiones si se mencionan",
+    "direccion": "Extrae la dirección o domicilio del asegurado, generalmente aparece seguido de una frase como 'Con domicilio en' o junto a los datos del asegurado, Incluye calle, número, colonia, alcaldía, ciudad, estado y código postal, si están.",
+    "rfc": "Localiza el Registro Federal de Contribuyentes (RFC), que es una clave alfanumérica de 12 o 13 caracteres. El RFC usualmente sigue un formato específico (ej. AAA990101XXX o AAAA990101XXX), puede estar ubicado despues de 'R.F.C.'.",
 }
