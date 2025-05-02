@@ -33,7 +33,7 @@ except ImportError:
     print("pdfplumber not available. PDF text extraction will be limited.", file=sys.stderr)
 
 # Constants
-MAX_TEXT_LENGTH = 8000
+MAX_TEXT_LENGTH = 100000
 RESULTS_DIR = os.path.join(tempfile.gettempdir(), "acmes_results")
 
 # Ensure results directory exists
@@ -358,7 +358,7 @@ class DocumentExtractor:
         
         try:
             # Prepare field descriptions for contract extraction
-            field_descriptions = {
+            field_descriptions = { 
                 "contract_id": "Código o número de identificación del contrato",
                 "contract_type": "Tipo de contrato (ej: compraventa, prestación de servicios, arrendamiento, etc.)",
                 "beneficiary_name": "Nombre del beneficiario, arrendador o parte contratante principal",
@@ -559,20 +559,7 @@ class DocumentExtractor:
             elif document_type == "seguro":
                 print(f"Using Mistral API to extract fields from {document_type}")
                 instructions = "Analiza esta póliza de seguro y extrae la siguiente información en formato JSON:"
-                fields_to_extract = {
-                    "poliza_id": "Número de la póliza",
-                    "aseguradora": "Nombre de la aseguradora o empresa emisora",
-                    "fecha_emision": "Fecha de emisión de la póliza",
-                    "fecha_inicio": "Fecha de inicio de cobertura",
-                    "fecha_fin": "Fecha de fin de cobertura",
-                    "asegurado": "Nombre del asegurado",
-                    "beneficiario": "Nombre del beneficiario si es diferente",
-                    "monto_cobertura": "Monto o suma asegurada",
-                    "prima": "Monto de la prima",
-                    "tipo_seguro": "Tipo de seguro (daños, vida, etc.)",
-                    "cobertura": "Descripción de la cobertura",
-                    "exclusiones": "Principales exclusiones si se mencionan"
-                }
+                fields_to_extract = DEFAULT_SEGURO_FIELDS
             elif document_type == "complementario":
                 print(f"Using Mistral API to extract fields from {document_type}")
                 instructions = "Analiza este documento complementario y extrae la siguiente información en formato JSON:"
@@ -1108,6 +1095,8 @@ class DocumentExtractor:
                 - parties_involved: Lista de las partes involucradas, como la afianzadora/aseguradora, el fiado/asegurado, y el beneficiario.
                 
                 - rfc: Lista de Registros Federales de Contribuyentes (RFC) de las partes mencionadas.
+
+                - 
                 
                 - validity_period: Lista de información sobre la vigencia, incluyendo fechas de inicio y terminación.
                 
@@ -1145,7 +1134,7 @@ class DocumentExtractor:
             
             # Prepare user message with text (limit to first 14K chars to leave room for response)
             ## TODO: Adjust MAX_TEXT_LENGTH based on API limits | los contratos ocupan 30K chars
-            MAX_TEXT_LENGTH = 85000
+            MAX_TEXT_LENGTH = 100000
             user_message = text[:MAX_TEXT_LENGTH]
             
             # Set up payload for API request
