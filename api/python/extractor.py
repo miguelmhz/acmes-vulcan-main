@@ -58,7 +58,7 @@ DEFAULT_DOCUMENT_FIELDS = {
 }
 
 # Configuración para APIs
-SAPTIVA_API_URL = "https://api.saptiva.com"
+SAPTIVA_API_URL = "https://api.saptiva.com/v1/chat/completions"
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 MISTRAL_OCR_API_URL = "https://api.mistral.ai/v1/ocr"
 
@@ -209,7 +209,7 @@ class DocumentExtractor:
             if doc_type_enum == DocumentType.CONTRACT:
                 result = self._process_contract(file_path, use_ocr, instance_id)
             else:
-                result = self._process_standard(file_path, document_type, instance_id)
+                result = self._process_standard(file_path, document_type, instance_id, use_ocr)
             
             # If we have raw text but no fields extracted, try with Mistral
             if "raw_text" in result and not result.get("fields") and self._get_mistral_api_key():
@@ -357,20 +357,6 @@ class DocumentExtractor:
             return {"error": "Text too short for contract extraction"}
         
         try:
-            # Prepare field descriptions for contract extraction
-            field_descriptions = { 
-                "contract_id": "Código o número de identificación del contrato",
-                "contract_type": "Tipo de contrato (ej: compraventa, prestación de servicios, arrendamiento, etc.)",
-                "beneficiary_name": "Nombre del beneficiario, arrendador o parte contratante principal",
-                "contractor_name": "Nombre del contratista, arrendatario o parte contratada",
-                "contract_date": "Fecha de firma del contrato",
-                "effective_date": "Fecha de inicio de vigencia del contrato",
-                "expiration_date": "Fecha de finalización de vigencia del contrato",
-                "contract_amount": "Monto total del contrato",
-                "payment_terms": "Términos de pago establecidos",
-                "property_details": "Detalles de la propiedad o local involucrado"
-            }
-            
             # Get Mistral API key for extraction
             api_key = self.mistral_api_key
             
@@ -504,7 +490,7 @@ class DocumentExtractor:
         
         return fields
     
-    def _process_standard(self, file_path: str, document_type: str, instance_id: Optional[str] = None) -> Dict[str, Any]:
+    def _process_standard(self, file_path: str, document_type: str, instance_id: Optional[str] = None, use_ocr: bool = False) -> Dict[str, Any]:
         """
         Process standard document types (policies, bonds, etc.)
         
@@ -546,7 +532,13 @@ class DocumentExtractor:
                 use_ocr = False
             
             # Extract text from the document
-            extracted_text = self._extract_text_from_file(file_path)
+            extracted_text = self._extract_text_from_file(file_path, use_ocr=use_ocr)
+            
+            if use_ocr:
+                ocr_text = self._extract_text_with_ocr(file_path)
+                if ocr_text and len(ocr_text) > len(extracted_text):
+                    print(f"OCR extraction successful. Original: {len(extracted_text)} chars, OCR: {len(ocr_text)} chars", file=sys.stderr)
+                    extracted_text = ocr_text
             print(f"Successfully extracted {len(extracted_text)} characters from PDF")
             result["metadata"]["processing_steps"].append(f"Extracted {len(extracted_text)} characters from document")
             result["metadata"]["text_length"] = len(extracted_text)
@@ -1082,31 +1074,27 @@ class DocumentExtractor:
                 3. Para los campos de listas (parties_involved, rfc, validity_period, amounts), utiliza arrays incluso si solo hay un elemento.
                 4. Pon especial atención a los encabezados de "DECLARACIONES" y "CLÁUSULAS" pues suelen contener información clave.
                 """
-            elif document_type.lower() in ['fianza', 'seguro']:
-                system_prompt = """
-                Eres un experto en extracción de información de fianzas y pólizas de seguro en español. Tu tarea es analizar el texto de la fianza/póliza proporcionada y extraer con precisión la siguiente información:
+            elif document_type.lower() == 'seguro':
+                system_prompt = f"""
+                Eres un experto en extracción de información de contratos mercantiles en español. Tu tarea es analizar el texto del contrato proporcionado y extraer con precisión la siguiente información:
 
-                - document_id: El identificador o número de la fianza/póliza. Busca patrones como "FIANZA No.", "PÓLIZA No.", etc.
-                
-                - document_title: El título completo del documento. Normalmente está al inicio y describe su naturaleza.
-                
-                - document_date: La fecha de emisión de la fianza/póliza en formato día, mes, año.
-                
-                - parties_involved: Lista de las partes involucradas, como la afianzadora/aseguradora, el fiado/asegurado, y el beneficiario.
-                
-                - rfc: Lista de Registros Federales de Contribuyentes (RFC) de las partes mencionadas.
-
-                - 
-                
-                - validity_period: Lista de información sobre la vigencia, incluyendo fechas de inicio y terminación.
-                
-                - amounts: Lista de montos monetarios relevantes, como el monto afianzado/asegurado.
+                {DEFAULT_SEGURO_FIELDS}
 
                 IMPORTANTE:
                 1. Responde ÚNICAMENTE en formato JSON sin ningún texto adicional.
                 2. Si alguna información no se encuentra en el texto, deja el campo como string vacío o arreglo vacío según corresponda.
-                3. Para los campos de listas (parties_involved, rfc, validity_period, amounts), utiliza arrays incluso si solo hay un elemento.
-                4. Pon especial atención a las secciones que describen la cobertura y condiciones de la fianza/póliza.
+                3. Para los campos de listas, utiliza arrays incluso si solo hay un elemento.
+                """
+            elif document_type.lower() == 'fianza':
+                system_prompt = f"""
+                Eres un experto en extracción de información de contratos mercantiles en español. Tu tarea es analizar el texto del contrato proporcionado y extraer con precisión la siguiente información:
+
+                {DEFAULT_FIANZA_FIELDS}
+
+                IMPORTANTE:
+                1. Responde ÚNICAMENTE en formato JSON sin ningún texto adicional.
+                2. Si alguna información no se encuentra en el texto, deja el campo como string vacío o arreglo vacío según corresponda.
+                3. Para los campos de listas, utiliza arrays incluso si solo hay un elemento.
                 """
             else:
                 system_prompt = """
@@ -1830,12 +1818,16 @@ class DocumentExtractor:
             
             # Prepare payload for Saptiva
             saptiva_payload = {
-                "modelName": "Saptiva Turbo",
-                "newTokens": 800,
-                "sysPrompt": system_prompt,
-                "message": user_message,
-                "temperature": 0.2
+                "model": "Saptiva Turbo",
+                "max_tokens": 800,
+                "messages": [
+                {"role": "system", "content": system_prompt}, 
+                {"role": "user", "content": user_message}
+                ],
+                "temperature": 0.4,
+                "top_p": 0.9,
             }
+            
             
             # Make the API call
             print("Sending request to Saptiva API for field extraction")
@@ -1843,7 +1835,6 @@ class DocumentExtractor:
                 SAPTIVA_API_URL,
                 headers=headers,
                 json=saptiva_payload,
-                timeout=60
             )
             
             print(f"Saptiva API response status: {response.status_code}")

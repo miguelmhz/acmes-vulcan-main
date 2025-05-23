@@ -14,7 +14,7 @@ from typing import Dict, Any, Tuple, Optional
 SAPTIVA_API_KEY = os.environ.get("SAPTIVA_API_KEY", "")
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "")
 # URLs para APIs
-SAPTIVA_API_URL = "https://api.saptiva.com"
+SAPTIVA_API_URL = "https://api.saptiva.com/v1/chat/completions"
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 
 class ValidationAgent:
@@ -454,11 +454,14 @@ class ValidationAgent:
             
             # Preparar payload para Saptiva
             saptiva_payload = {
-                "modelName": "Saptiva Turbo",
-                "newTokens": 500,
-                "sysPrompt": system_prompt,
-                "message": user_message,
-                "temperature": 0.7
+                "model": "Saptiva Turbo",
+                "max_tokens": 800,
+                "messages": [
+                {"role": "system", "content": system_prompt}, 
+                {"role": "user", "content": user_message}
+                ],
+                "temperature": 0.4,
+                "top_p": 0.9,
             }
             
             # Enviar solicitud a Saptiva
@@ -467,7 +470,6 @@ class ValidationAgent:
                 api_url,
                 headers=headers,
                 json=saptiva_payload,
-                timeout=30
             )
             
             print(f"Código de respuesta de Saptiva: {response.status_code}")
